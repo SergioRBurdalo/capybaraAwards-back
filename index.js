@@ -10,14 +10,14 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
-// Conectar a MongoDB
-mongoose.connect('mongodb+srv://srburdalo:capybaraPass@capypro.p3m4j.mongodb.net/capybaradb')
-  .then(() => {
-    console.log('Conexión exitosa a MongoDB');
-  })
-  .catch((err) => {
-    console.error('Error conectando a MongoDB', err);
-  });
+/// Conectar a MongoDB usando la variable de entorno
+mongoose.connect(process.env.MONGODB_URI)
+.then(() => {
+  console.log('Conexión exitosa a MongoDB');
+})
+.catch((err) => {
+  console.error('Error conectando a MongoDB', err);
+});
 
 
 // Definir el esquema y el modelo del usuario

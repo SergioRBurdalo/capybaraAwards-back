@@ -76,16 +76,16 @@ app.post('/updateLastLogin', async (req, res) => {
   }
 });
 
-// Ruta para obtener todas las categorías con candidatos
 app.get('/getCategorias', async (req, res) => {
   try {
-    const categorias = await Categoria.find();  // Obtiene todas las categorías
+    const categorias = await Categoria.find({}, '_id titulo descripcion');  // Seleccionar solo _id, nombre y descripcion
     res.json(categorias);  // Devuelve las categorías en formato JSON
   } catch (err) {
     console.error('Error obteniendo categorías:', err);
     res.status(500).json({ message: 'Error al obtener las categorías', error: err });
   }
 });
+
 
 // Exportar la app para que funcione en Vercel
 module.exports = app;

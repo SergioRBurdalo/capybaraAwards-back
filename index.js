@@ -43,6 +43,7 @@ const categoriaSchema = new mongoose.Schema({
       candidato: String,  // Nombre del candidato o "Otro" si fue seleccionado.
       nombreOtro: String,  // El nombre ingresado si el candidato es "Otro".
       fechaGuardado: String,  // Fecha de votación guardada como string.
+      motivo: String,
       usuario: String  // El usuario que propuso el candidato.
     }
   ]

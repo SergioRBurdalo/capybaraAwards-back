@@ -1,24 +1,29 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const { v4: uuidv4 } = require('uuid');  // Para generar UUID v4
 const app = express();
+require('dotenv').config();  // Cargar variables de entorno
 
-app.use(cors());
-app.use(express.json());
+console.log('MONGODB_URI:', process.env.MONGODB_URI);  // Verifica si la URI se está cargando correctamente
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
-/// Conectar a MongoDB usando la variable de entorno
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
 .then(() => {
   console.log('Conexión exitosa a MongoDB');
 })
 .catch((err) => {
   console.error('Error conectando a MongoDB', err);
 });
+app.use(cors());
+app.use(express.json());
 
+const PORT = process.env.PORT || 4001;
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
+});
 
 // Definir el esquema y el modelo del usuario
 const userSchema = new mongoose.Schema({
@@ -30,21 +35,16 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Definir el esquema y el modelo de la categoría con candidatos
 const categoriaSchema = new mongoose.Schema({
   _id: { type: String, default: () => uuidv4() }, 
   idCategoria: Number,
   nombre: String,
-  opciones: [
+  candidatos: [
     {
-      id: Number,
-      texto: String,
-      votos: [
-        {
-          usuario: String,
-          fecha: String
-        }
-      ],
-      imagen: String
+      nombreCandidato: String,
+      fechaVotacion: String,  // Almacenado como string en lugar de ISODate
+      votadoPor: [String]  // Array de strings que contiene los nombres de los votantes
     }
   ]
 });
@@ -76,6 +76,16 @@ app.post('/updateLastLogin', async (req, res) => {
   }
 });
 
+// Ruta para obtener todas las categorías con candidatos
+app.get('/getCategorias', async (req, res) => {
+  try {
+    const categorias = await Categoria.find();  // Obtiene todas las categorías
+    res.json(categorias);  // Devuelve las categorías en formato JSON
+  } catch (err) {
+    console.error('Error obteniendo categorías:', err);
+    res.status(500).json({ message: 'Error al obtener las categorías', error: err });
+  }
+});
 
 // Exportar la app para que funcione en Vercel
 module.exports = app;

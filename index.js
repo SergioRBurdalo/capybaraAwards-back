@@ -87,7 +87,7 @@ app.get('/getCategorias', async (req, res) => {
 
 
 app.post('/guardarCandidato', async (req, res) => {
-  const { categoriaId, candidato, nombreOtro, usuario } = req.body;
+  const { categoriaId, candidato, nombreOtro,motivo, usuario } = req.body;
 
   console.log('Recibido en /guardarCandidato:', { categoriaId, candidato, nombreOtro, usuario });
 
@@ -96,6 +96,7 @@ app.post('/guardarCandidato', async (req, res) => {
       candidato,  // Nombre del candidato, o "Otro" si fue seleccionado.
       nombreOtro, // El nombre escrito si fue seleccionado "Otro".
       fechaGuardado: new Date().toISOString(),  // Fecha actual.
+      motivo,
       usuario,  // Usuario que realizó la votación.
     };
 

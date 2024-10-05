@@ -8,8 +8,6 @@ require('dotenv').config();  // Cargar variables de entorno
 console.log('MONGODB_URI:', process.env.MONGODB_URI);  // Verifica si la URI se está cargando correctamente
 
 mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
 })
 .then(() => {
   console.log('Conexión exitosa a MongoDB');
@@ -42,9 +40,10 @@ const categoriaSchema = new mongoose.Schema({
   nombre: String,
   candidatos: [
     {
-      nombreCandidato: String,
-      fechaVotacion: String,  // Almacenado como string en lugar de ISODate
-      votadoPor: [String]  // Array de strings que contiene los nombres de los votantes
+      candidato: String,  // Nombre del candidato o "Otro" si fue seleccionado.
+      nombreOtro: String,  // El nombre ingresado si el candidato es "Otro".
+      fechaGuardado: String,  // Fecha de votación guardada como string.
+      usuario: String  // El usuario que propuso el candidato.
     }
   ]
 });
@@ -83,6 +82,46 @@ app.get('/getCategorias', async (req, res) => {
   } catch (err) {
     console.error('Error obteniendo categorías:', err);
     res.status(500).json({ message: 'Error al obtener las categorías', error: err });
+  }
+});
+
+
+app.post('/guardarCandidato', async (req, res) => {
+  const { categoriaId, candidato, nombreOtro, usuario } = req.body;
+
+  console.log('Recibido en /guardarCandidato:', { categoriaId, candidato, nombreOtro, usuario });
+
+  try {
+    const candidatoAGuardar = {
+      candidato,  // Nombre del candidato, o "Otro" si fue seleccionado.
+      nombreOtro, // El nombre escrito si fue seleccionado "Otro".
+      fechaGuardado: new Date().toISOString(),  // Fecha actual.
+      usuario,  // Usuario que realizó la votación.
+    };
+
+    // Verifica si categoriaId es un string
+    if (typeof categoriaId !== 'string' || !categoriaId.trim()) {
+      return res.status(400).json({ message: 'categoriaId es inválido o vacío' });
+    }
+
+    // Buscar la categoría por ID como string
+    const categoria = await Categoria.findOne({ _id: categoriaId.trim() });
+
+    // Verificar si se encontró la categoría
+    if (!categoria) {
+      return res.status(404).json({ message: 'Categoría no encontrada' });
+    }
+
+    // Agregar el candidato al array de candidatos
+    categoria.candidatos.push(candidatoAGuardar);
+
+    // Guardar la categoría actualizada
+    await categoria.save();
+
+    res.json({ categoria, message: 'Candidato guardado correctamente' });
+  } catch (err) {
+    console.error('Error guardando candidato:', err);
+    res.status(500).json({ message: 'Error al guardar el candidato' });
   }
 });
 

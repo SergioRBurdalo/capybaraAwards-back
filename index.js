@@ -15,6 +15,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 .catch((err) => {
   console.error('Error conectando a MongoDB', err);
 });
+
 app.use(cors());
 app.use(express.json());
 
@@ -51,6 +52,48 @@ const categoriaSchema = new mongoose.Schema({
 
 const Categoria = mongoose.model('Categoria', categoriaSchema);
 
+// Definir el esquema y el modelo de votaciones
+const votacionSchema = new mongoose.Schema({
+  idCategoria: String,
+  tituloCategoria: String,
+  descripcion: String,
+  candidatos: [
+    {
+      idCandidato: String,
+      nombreCandidato: String,
+      idImagen: String,
+      descripcion: String,
+      usuarioPropuesto: String,
+      totalVotos: Number
+    }
+  ],
+  votaciones: [
+    {
+      idUsuario: String,
+      nombreUsuario: String,
+      fechaVotacion: String,
+      idCandidatoVotado: String
+    }
+  ]
+});
+
+const Votacion = mongoose.model('Votaciones', votacionSchema);
+
+// Ruta para obtener todas las votaciones
+app.get('/getVotaciones', async (req, res) => {
+  try {
+    // Solo devuelve campos seleccionados: idCategoria, tituloCategoria y candidatos
+    const votaciones = await Votacion.find()
+      .sort({ Orden: 1 });
+
+    console.log('Votaciones encontradas:', votaciones);
+    res.json(votaciones);
+  } catch (err) {
+    console.error('Error obteniendo votaciones:', err);
+    res.status(500).json({ message: 'Error al obtener las votaciones', error: err });
+  }
+});
+
 // Ruta para actualizar el lastLogin
 app.post('/updateLastLogin', async (req, res) => {
   const { username, password } = req.body;
@@ -86,9 +129,8 @@ app.get('/getCategorias', async (req, res) => {
   }
 });
 
-
 app.post('/guardarCandidato', async (req, res) => {
-  const { categoriaId, candidato, nombreOtro,motivo, usuario } = req.body;
+  const { categoriaId, candidato, nombreOtro, motivo, usuario } = req.body;
 
   console.log('Recibido en /guardarCandidato:', { categoriaId, candidato, nombreOtro, usuario });
 
@@ -126,7 +168,6 @@ app.post('/guardarCandidato', async (req, res) => {
     res.status(500).json({ message: 'Error al guardar el candidato' });
   }
 });
-
 
 // Exportar la app para que funcione en Vercel
 module.exports = app;

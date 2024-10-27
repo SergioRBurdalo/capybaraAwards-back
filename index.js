@@ -57,6 +57,7 @@ const votacionSchema = new mongoose.Schema({
   idCategoria: String,
   tituloCategoria: String,
   descripcion: String,
+  Orden: Number,
   candidatos: [
     {
       idCandidato: String,
@@ -82,17 +83,20 @@ const Votacion = mongoose.model('Votaciones', votacionSchema);
 // Ruta para obtener todas las votaciones
 app.get('/getVotaciones', async (req, res) => {
   try {
-    // Solo devuelve campos seleccionados: idCategoria, tituloCategoria y candidatos
-    const votaciones = await Votacion.find()
-      .sort({ Orden: 1 });
+    // Obtiene todos los documentos
+    const votaciones = await Votacion.find();
 
-    console.log('Votaciones encontradas:', votaciones);
-    res.json(votaciones);
+    // Ordena los documentos en el array por la propiedad `Orden`
+    const votacionesOrdenadas = votaciones.sort((a, b) => a.Orden - b.Orden);
+
+    console.log('Votaciones encontradas:', votacionesOrdenadas);
+    res.json(votacionesOrdenadas);
   } catch (err) {
     console.error('Error obteniendo votaciones:', err);
     res.status(500).json({ message: 'Error al obtener las votaciones', error: err });
   }
 });
+
 
 // Ruta para actualizar el lastLogin
 app.post('/updateLastLogin', async (req, res) => {

@@ -123,6 +123,48 @@ app.post('/updateLastLogin', async (req, res) => {
   }
 });
 
+// Ruta para guardar un voto
+app.post('/guardarVoto', async (req, res) => {
+  const { idCategoria, idCandidato, nombreUsuario } = req.body;
+
+  try {
+    // Busca la votación por ID de categoría
+    const votacion = await Votacion.findOne({ idCategoria });
+
+    if (!votacion) {
+      return res.status(404).json({ message: 'Categoría no encontrada' });
+    }
+
+    // Verificar si el usuario ya ha votado en esta categoría
+    const yaVotado = votacion.votaciones.some(
+      (voto) => voto.nombreUsuario === nombreUsuario
+    );
+
+    if (yaVotado) {
+      return res.status(400).json({ message: 'El usuario ya ha votado en esta categoría' });
+    }
+
+    // Agregar el nuevo voto
+    const nuevoVoto = {
+      idUsuario: uuidv4(),
+      nombreUsuario,
+      fechaVotacion: new Date().toISOString(),
+      idCandidatoVotado: idCandidato,
+    };
+
+    votacion.votaciones.push(nuevoVoto);
+
+    // Guardar la votación actualizada en la base de datos
+    await votacion.save();
+
+    res.json({ message: 'Voto registrado exitosamente' });
+  } catch (err) {
+    console.error('Error guardando el voto:', err);
+    res.status(500).json({ message: 'Error al guardar el voto', error: err });
+  }
+});
+
+
 app.get('/getCategorias', async (req, res) => {
   try {
     const categorias = await Categoria.find({}, '_id titulo descripcion');  // Seleccionar solo _id, nombre y descripcion

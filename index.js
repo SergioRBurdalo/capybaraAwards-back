@@ -70,10 +70,9 @@ const votacionSchema = new mongoose.Schema({
   ],
   votaciones: [
     {
-      idUsuario: String,
       nombreUsuario: String,
       fechaVotacion: String,
-      idCandidatoVotado: String
+      nombreCandidato: String
     }
   ]
 });
@@ -125,7 +124,7 @@ app.post('/updateLastLogin', async (req, res) => {
 
 // Ruta para guardar un voto
 app.post('/guardarVoto', async (req, res) => {
-  const { idCategoria, idCandidato, nombreUsuario } = req.body;
+  const { idCategoria, nombreCandidato, nombreUsuario } = req.body;
 
   try {
     // Busca la votación por ID de categoría
@@ -146,10 +145,9 @@ app.post('/guardarVoto', async (req, res) => {
 
     // Agregar el nuevo voto
     const nuevoVoto = {
-      idUsuario: uuidv4(),
       nombreUsuario,
       fechaVotacion: new Date().toISOString(),
-      idCandidatoVotado: idCandidato,
+      nombreCandidato,
     };
 
     votacion.votaciones.push(nuevoVoto);

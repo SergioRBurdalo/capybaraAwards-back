@@ -52,12 +52,12 @@ const categoriaSchema = new mongoose.Schema({
 
 const Categoria = mongoose.model('Categoria', categoriaSchema);
 
-// Definir el esquema y el modelo de votaciones
 const votacionSchema = new mongoose.Schema({
-  idCategoria: String,
-  tituloCategoria: String,
+  idCategoria: { type: String, required: true },
+  tituloCategoria: { type: String, required: true },
   descripcion: String,
   Orden: Number,
+  multichoise: { type: Boolean, default: false }, // Campo para indicar si es una votación de tipo multichoise
   candidatos: [
     {
       idCandidato: String,
@@ -65,16 +65,22 @@ const votacionSchema = new mongoose.Schema({
       idImagen: String,
       descripcion: String,
       usuarioPropuesto: String,
-      totalVotos: Number
-    }
+      totalVotos: Number,
+    },
   ],
   votaciones: [
     {
-      nombreUsuario: String,
-      fechaVotacion: String,
-      nombreCandidato: String
-    }
-  ]
+      nombreUsuario: { type: String, required: true },
+      fechaVotacion: { type: String, required: true },
+      // Campos para votación de elección única
+      nombreCandidato: { type: String, default: null },
+      // Campos para votación con puntos
+      tresPuntos: { type: String, default: null },
+      dosPuntos: { type: String, default: null },
+      unPunto: { type: String, default: null },
+    },
+  ],
+  hidden: { type: Boolean, default: false },
 });
 
 const Votacion = mongoose.model('Votaciones', votacionSchema);
@@ -121,6 +127,53 @@ app.post('/updateLastLogin', async (req, res) => {
     res.status(500).json({ message: 'Error al actualizar el login', error: err });
   }
 });
+
+app.post('/guardarVotoPuntuado', async (req, res) => {
+  const { idCategoria, nombreUsuario, fechaVotacion, puntos, tipoPunto } = req.body;
+
+  try {
+    // Busca la votación por ID de categoría
+    const votacion = await Votaciones.findOne({ idCategoria });
+
+    if (!votacion) {
+      return res.status(404).json({ message: 'Categoría no encontrada' });
+    }
+
+    // Busca o crea la entrada de votación del usuario
+    let votoUsuario = votacion.votaciones.find(voto => voto.nombreUsuario === nombreUsuario);
+
+    if (!votoUsuario) {
+      // Si el usuario no ha votado, inicializa una entrada con el usuario y fecha de votación
+      votoUsuario = {
+        nombreUsuario,
+        fechaVotacion,
+        tresPuntos: null,
+        dosPuntos: null,
+        unPunto: null,
+      };
+      votacion.votaciones.push(votoUsuario);
+    }
+
+    // Asigna el candidato al campo correspondiente según el tipo de punto
+    if (tipoPunto === '3Puntos') {
+      votoUsuario.tresPuntos = puntos;
+    } else if (tipoPunto === '2Puntos') {
+      votoUsuario.dosPuntos = puntos;
+    } else if (tipoPunto === '1Punto') {
+      votoUsuario.unPunto = puntos;
+    }
+
+    // Guarda la votación actualizada
+    await votacion.save();
+
+    res.json({ message: 'Voto registrado exitosamente' });
+  } catch (err) {
+    console.error('Error guardando el voto:', err);
+    res.status(500).json({ message: 'Error al guardar el voto', error: err });
+  }
+});
+
+
 
 // Ruta para guardar un voto
 app.post('/guardarVoto', async (req, res) => {

@@ -133,7 +133,7 @@ app.post('/guardarVotoPuntuado', async (req, res) => {
 
   try {
     // Busca la votación por ID de categoría
-    const votacion = await Votaciones.findOne({ idCategoria });
+    const votacion = await Votacion.findOne({ idCategoria });
 
     if (!votacion) {
       return res.status(404).json({ message: 'Categoría no encontrada' });
@@ -151,6 +151,13 @@ app.post('/guardarVotoPuntuado', async (req, res) => {
         dosPuntos: null,
         unPunto: null,
       };
+      if (tipoPunto === '3Puntos') {
+        votoUsuario.tresPuntos = puntos;
+      } else if (tipoPunto === '2Puntos') {
+        votoUsuario.dosPuntos = puntos;
+      } else if (tipoPunto === '1Puntos') {
+        votoUsuario.unPunto = puntos;
+      }
       votacion.votaciones.push(votoUsuario);
     }
 
@@ -159,7 +166,7 @@ app.post('/guardarVotoPuntuado', async (req, res) => {
       votoUsuario.tresPuntos = puntos;
     } else if (tipoPunto === '2Puntos') {
       votoUsuario.dosPuntos = puntos;
-    } else if (tipoPunto === '1Punto') {
+    } else if (tipoPunto === '1Puntos') {
       votoUsuario.unPunto = puntos;
     }
 

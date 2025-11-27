@@ -29,6 +29,40 @@ const userSchema = new mongoose.Schema({
 });
 const User = mongoose.model("User", userSchema);
 
+/* -------------------------  MODELO: Votaciones ------------------------- */
+
+const votacionCategoriaSchema = new mongoose.Schema(
+  {
+    // Soporta UUID binarios y strings
+    _id: { type: mongoose.Schema.Types.Mixed },
+
+    tituloCategoria: String,
+    descripcion: String,
+    multichoise: Boolean,
+    Orden: Number,
+    hidden: Boolean,
+
+    candidatos: [
+      {
+        // IMPORTANTE: coincide con la colección real
+        idCandidato: String,
+        nombreCandidato: String,
+        idImagen: String,
+        descripcion: String,
+        usuarioPropuesto: String,
+        totalVotos: { type: Number, default: 0 },
+        votadoPor: { type: [String], default: [] }, // usernames que votaron
+      },
+    ],
+  },
+  { collection: "votaciones" }
+);
+
+const VotacionCategoria = mongoose.model(
+  "VotacionCategoria",
+  votacionCategoriaSchema
+);
+
 // 🔹 Modelo de categoría propuesta desde el front
 const categoriaNuevaSchema = new mongoose.Schema({
   _id: { type: String, default: () => uuidv4() },
@@ -38,6 +72,21 @@ const categoriaNuevaSchema = new mongoose.Schema({
   fechaCreacion: { type: String, default: () => new Date().toISOString() },
 });
 const CategoriaNueva = mongoose.model("Categorias", categoriaNuevaSchema);
+
+const candidatoSchema = new mongoose.Schema(
+  {
+    _id: { type: String, default: () => uuidv4() }, // UUID real
+    nombreCandidato: { type: String, required: true },
+    imagen: { type: String, required: true },
+    username: { type: String, required: true },
+    descripcion: { type: String, default: "" },
+    activo: { type: Boolean, default: true },
+    fechaCreacion: { type: String, default: () => new Date().toISOString() },
+  },
+  { collection: "candidatos" }
+);
+
+const Candidato = mongoose.model("Candidato", candidatoSchema);
 
 // 🔹 Modelo de categoría oficial (categoríaAwards)
 const categoriaOficialSchema = new mongoose.Schema(
@@ -61,7 +110,10 @@ const categoriaOficialSchema = new mongoose.Schema(
   { collection: "categoriaAwards" } // 👈 Nombre exacto de la colección
 );
 
-const CategoriaOficial = mongoose.model("CategoriaOficial", categoriaOficialSchema);
+const CategoriaOficial = mongoose.model(
+  "CategoriaOficial",
+  categoriaOficialSchema
+);
 
 /* -------------------------  RUTAS ------------------------- */
 
@@ -85,9 +137,10 @@ app.post("/updateLastLogin", async (req, res) => {
     }
   } catch (err) {
     console.error("Error guardando usuario:", err);
-    res
-      .status(500)
-      .json({ message: "Error al actualizar el login", error: err });
+    res.status(500).json({
+      message: "Error al actualizar el login",
+      error: err,
+    });
   }
 });
 
@@ -116,9 +169,10 @@ app.post("/guardarCategoria", async (req, res) => {
     });
   } catch (err) {
     console.error("Error guardando la categoría:", err);
-    res
-      .status(500)
-      .json({ message: "Error al guardar la categoría", error: err });
+    res.status(500).json({
+      message: "Error al guardar la categoría",
+      error: err,
+    });
   }
 });
 
@@ -129,9 +183,10 @@ app.get("/getCategorias", async (req, res) => {
     res.json(categorias);
   } catch (err) {
     console.error("Error obteniendo categorías:", err);
-    res
-      .status(500)
-      .json({ message: "Error al obtener las categorías", error: err });
+    res.status(500).json({
+      message: "Error al obtener las categorías",
+      error: err,
+    });
   }
 });
 
@@ -179,18 +234,111 @@ app.post("/agregarCandidato", async (req, res) => {
 
     res.json({
       message: "Candidato añadido correctamente",
-      categoriaId: categoriaId,
+      categoriaId,
       candidato: nuevoCandidato,
     });
   } catch (err) {
     console.error("Error agregando candidato:", err);
-    res
-      .status(500)
-      .json({ message: "Error al agregar el candidato", error: err });
+    res.status(500).json({
+      message: "Error al agregar el candidato",
+      error: err,
+    });
   }
 });
 
-// 🔹 Obtener candidatos de una categoría específica (opcional)
+app.get("/getAllCandidatos", async (req, res) => {
+  try {
+    const candidatos = await Candidato.find().sort({ nombreCandidato: 1 });
+    res.json(candidatos);
+  } catch (err) {
+    console.error("Error obteniendo candidatos:", err);
+    res.status(500).json({
+      message: "Error al obtener los candidatos",
+      error: err,
+    });
+  }
+});
+
+/* ----------------------------------------------------
+   🗳️ VOTAR SINGLE (un solo candidato por categoría)
+   Busca el candidato dentro de la categoría
+---------------------------------------------------- */
+app.post("/votarSingle", async (req, res) => {
+  const { categoriaId, candidatoId, usuario } = req.body;
+
+  if (!categoriaId || !candidatoId || !usuario) {
+    return res.status(400).json({
+      message: "Faltan datos: categoriaId, candidatoId o usuario",
+    });
+  }
+
+  try {
+    // 1. Buscar la categoría
+    const categoria = await VotacionCategoria.findById(categoriaId);
+
+    if (!categoria) {
+      return res.status(404).json({ message: "Categoría no encontrada" });
+    }
+
+    // 2. Verificar si el usuario ya votó en esta categoría
+    const yaVotado = categoria.candidatos.some((c) =>
+      c.votadoPor.includes(usuario)
+    );
+
+    if (yaVotado) {
+      return res.status(400).json({
+        message: "Ya has votado en esta categoría",
+      });
+    }
+
+    // 3. Buscar el candidato dentro de la categoría
+    const candidato = categoria.candidatos.find(
+      (c) => c.idCandidato === candidatoId
+    );
+
+    if (!candidato) {
+      return res.status(404).json({
+        message: "Candidato no encontrado dentro de la categoría",
+      });
+    }
+
+    // 4. Registrar el voto
+    candidato.totalVotos = (candidato.totalVotos || 0) + 1;
+    candidato.votadoPor.push(usuario);
+
+    // 5. Guardar
+    await categoria.save();
+
+    res.json({
+      message: "Voto registrado correctamente",
+      categoriaId,
+      candidatoId,
+      usuario,
+    });
+  } catch (err) {
+    console.error("❌ Error en votarSingle:", err);
+    res.status(500).json({
+      message: "Error al registrar el voto",
+      error: err,
+    });
+  }
+});
+
+// 🔹 Obtener categorías de votaciones (para el front de votación)
+app.get("/votaciones", async (req, res) => {
+  try {
+    const categorias = await VotacionCategoria.find().sort({ Orden: 1 });
+    res.json(categorias);
+  } catch (err) {
+    console.error("Error obteniendo votaciones:", err);
+    res.status(500).json({
+      message: "Error al obtener votaciones",
+      error: err,
+    });
+  }
+});
+
+// 🔹 Obtener candidatos de una categoría oficial (opcional)
 app.get("/getCandidatos/:id", async (req, res) => {
   try {
     const categoria = await CategoriaOficial.findById(req.params.id);
@@ -200,9 +348,10 @@ app.get("/getCandidatos/:id", async (req, res) => {
     res.json(categoria.candidatos || []);
   } catch (err) {
     console.error("Error obteniendo candidatos:", err);
-    res
-      .status(500)
-      .json({ message: "Error al obtener candidatos", error: err });
+    res.status(500).json({
+      message: "Error al obtener candidatos",
+      error: err,
+    });
   }
 });
 

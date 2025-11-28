@@ -33,7 +33,6 @@ const User = mongoose.model("User", userSchema);
 
 const votacionCategoriaSchema = new mongoose.Schema(
   {
-    // Soporta UUID binarios y strings
     _id: { type: mongoose.Schema.Types.Mixed },
 
     tituloCategoria: String,
@@ -44,14 +43,26 @@ const votacionCategoriaSchema = new mongoose.Schema(
 
     candidatos: [
       {
-        // IMPORTANTE: coincide con la colección real
         idCandidato: String,
         nombreCandidato: String,
         idImagen: String,
         descripcion: String,
         usuarioPropuesto: String,
+
+        // Voto single
         totalVotos: { type: Number, default: 0 },
-        votadoPor: { type: [String], default: [] }, // usernames que votaron
+        votadoPor: { type: [String], default: [] },
+
+        // 🔥 VOTO MULTI (3–2–1 puntos)
+        votosMulti: {
+          type: [
+            {
+              usuario: String,
+              puntos: Number,
+            },
+          ],
+          default: [],
+        },
       },
     ],
   },
@@ -62,6 +73,7 @@ const VotacionCategoria = mongoose.model(
   "VotacionCategoria",
   votacionCategoriaSchema
 );
+
 
 // 🔹 Modelo de categoría propuesta desde el front
 const categoriaNuevaSchema = new mongoose.Schema({
@@ -337,6 +349,80 @@ app.get("/votaciones", async (req, res) => {
     });
   }
 });
+
+app.post("/votarMulti", async (req, res) => {
+  const { categoriaId, candidatoIds, usuario } = req.body;
+
+  if (!categoriaId || !Array.isArray(candidatoIds) || candidatoIds.length === 0 || !usuario) {
+    return res.status(400).json({
+      message: "Datos inválidos. Se requiere categoriaId, candidatoIds[] y usuario",
+    });
+  }
+
+  try {
+    // 1. Buscar categoría
+    const categoria = await VotacionCategoria.findById(categoriaId);
+    if (!categoria) {
+      return res.status(404).json({ message: "Categoría no encontrada" });
+    }
+
+    // 2. Comprobar si el usuario ya votó
+    const yaVotado = categoria.candidatos.some(c =>
+      Array.isArray(c.votosMulti) &&
+      c.votosMulti.some(v => v.usuario === usuario)
+    );
+
+    if (yaVotado) {
+      return res.status(400).json({ message: "Ya has votado en esta categoría" });
+    }
+
+    // 3. Puntos → 3, 2, 1
+    const puntosAsignados = [3, 2, 1];
+
+    candidatoIds.forEach((id, index) => {
+      const candidato = categoria.candidatos.find(c => c.idCandidato === id);
+
+      if (!candidato) return;
+
+      // Crear array si no existe
+      if (!Array.isArray(candidato.votosMulti)) {
+        candidato.votosMulti = [];
+      }
+
+      const puntos = puntosAsignados[index] || 1;
+
+      candidato.votosMulti.push({
+        usuario,
+        puntos
+      });
+
+      // Sumar bien los puntos
+      candidato.totalVotos = (candidato.totalVotos || 0) + puntos;
+    });
+
+    // NECESARIO para que Mongoose persista arrays profundos
+    categoria.markModified("candidatos");
+
+    await categoria.save();
+
+    res.json({
+      message: "Voto múltiple registrado correctamente",
+      categoriaId,
+      resultados: candidatoIds.map((id, i) => ({
+        candidatoId: id,
+        puntos: puntosAsignados[i] || 1
+      }))
+    });
+
+  } catch (err) {
+    console.error("❌ Error en votarMulti:", err);
+    res.status(500).json({
+      message: "Error al registrar el voto múltiple",
+      error: err,
+    });
+  }
+});
+
 
 // 🔹 Obtener candidatos de una categoría oficial (opcional)
 app.get("/getCandidatos/:id", async (req, res) => {

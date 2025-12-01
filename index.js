@@ -339,7 +339,10 @@ app.post("/votarSingle", async (req, res) => {
 // 🔹 Obtener categorías de votaciones (para el front de votación)
 app.get("/votaciones", async (req, res) => {
   try {
-    const categorias = await VotacionCategoria.find().sort({ Orden: 1 });
+    const categorias = await VotacionCategoria
+      .find({ hidden: false })  // 🔥 Filtra SOLO las visibles
+      .sort({ Orden: 1 });
+
     res.json(categorias);
   } catch (err) {
     console.error("Error obteniendo votaciones:", err);
